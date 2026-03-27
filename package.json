@@ -1,6 +1,6 @@
 {
   "name": "react-native-debug-logger",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "A premium hidden debug logger and network monitor for React Native apps",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
