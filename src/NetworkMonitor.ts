@@ -5,7 +5,7 @@ export const setupNetworkMonitor = () => {
   if (Logger.isNetworkPatched) return;
   Logger.isNetworkPatched = true;
 
-  // --- Global Fetch Monitor ---
+
   if (window.fetch) {
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {
@@ -49,10 +49,10 @@ export const setupNetworkMonitor = () => {
       try {
         const response = await originalFetch(...args);
         
-        // Clone response to avoid consuming the stream for the app
+
         const clonedResponse = response.clone();
         
-        // Parse data asynchronously without blocking the main response
+
         clonedResponse.text().then(text => {
             let responseData;
             try {
@@ -91,12 +91,10 @@ export const setupNetworkMonitor = () => {
     };
   }
 
-  // --- Global XHR Monitor ---
   const XHR = XMLHttpRequest.prototype as any;
   const originalOpen = XHR.open;
   const originalSend = XHR.send;
 
-  // Use a symbol or unique property to prevent double-patching
   if (XHR._isPatchedByDebugLogger) return;
   XHR._isPatchedByDebugLogger = true;
 
@@ -114,16 +112,13 @@ export const setupNetworkMonitor = () => {
   XHR.send = function(body: any) {
     const xhr = this as any;
     
-    // Log request immediately
     const reqId = Logger.logRequest({
       url: xhr._url,
       method: xhr._method,
       data: body,
     });
 
-    // Strategy: Use addEventListener if available, fallback to proxying onreadystatechange
     const onComplete = () => {
-      // Avoid multiple executions for the same request
       if (xhr._alreadyLogged) return;
       xhr._alreadyLogged = true;
 
@@ -169,13 +164,11 @@ export const setupNetworkMonitor = () => {
     };
 
     if (this.addEventListener) {
-      // In React Native, 'load' fires on success, 'error' on failure
       this.addEventListener('load', onComplete);
       this.addEventListener('error', onError);
       this.addEventListener('abort', onError);
       this.addEventListener('timeout', onError);
     } else {
-      // Fallback for environments without addEventListener
       const originalOnReadyStateChange = this.onreadystatechange;
       this.onreadystatechange = function() {
         if (this.readyState === 4) {

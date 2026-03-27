@@ -152,8 +152,6 @@ class DebugLogger {
   }
 
   public init() {
-    // This can be used as a central initialization point
-    // We will call setupNetworkMonitor from here if it's available
   }
 }
 
