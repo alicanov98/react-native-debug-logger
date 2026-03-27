@@ -46,7 +46,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/alijanov/react-native-debug-logger.git"
+    "url": "https://github.com/alicanov98/react-native-debug-logger"
   },
-  "homepage": "https://github.com/alijanov/react-native-debug-logger#readme"
+  "homepage": "https://github.com/alicanov98/react-native-debug-logger/blob/main/README.md"
 }
