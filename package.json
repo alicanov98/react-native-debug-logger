@@ -1,0 +1,52 @@
+{
+  "name": "react-native-debug-logger",
+  "version": "1.2.0",
+  "description": "A premium hidden debug logger and network monitor for React Native apps",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "react": "*",
+    "react-native": "*",
+    "@types/react": "*",
+    "@types/react-native": "*"
+  },
+  "dependencies": {
+    "@babel/runtime": "*"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*",
+    "axios": "*"
+  },
+  "peerDependenciesMeta": {
+    "axios": {
+      "optional": true
+    }
+  },
+  "keywords": [
+    "react-native",
+    "debug",
+    "logger",
+    "axios",
+    "network-monitor",
+    "monitor"
+  ],
+  "author": "Alijanov",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alijanov/react-native-debug-logger.git"
+  },
+  "homepage": "https://github.com/alijanov/react-native-debug-logger#readme"
+}
