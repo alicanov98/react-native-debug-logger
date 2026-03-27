@@ -25,3 +25,5 @@ yarn-error.log*
 
 # TypeScript
 *.tsbuildinfo
+.DS_Store
+package-lock.json
