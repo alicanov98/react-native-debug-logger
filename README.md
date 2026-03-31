@@ -15,10 +15,10 @@ Capture network requests, console logs, and dynamically switch API environments 
 ## 👀 Preview
 
 <p align="center">
-  <img src="images/example.png" width="150" alt="Monitor List" />
-  <img src="images/example1.png" width="150" alt="Network Details" />
-  <img src="images/example2.png" width="150" alt="Console Logs" />
-  <img src="images/example3.png" width="150" alt="Settings & Environment" />
+  <img src="https://raw.githubusercontent.com/alicanov98/react-native-debug-logger/main/images/example.png" width="150" alt="Monitor List" />
+  <img src="https://raw.githubusercontent.com/alicanov98/react-native-debug-logger/main/images/example1.png" width="150" alt="Network Details" />
+  <img src="https://raw.githubusercontent.com/alicanov98/react-native-debug-logger/main/images/example2.png" width="150" alt="Console Logs" />
+  <img src="https://raw.githubusercontent.com/alicanov98/react-native-debug-logger/main/images/example3.png" width="150" alt="Settings & Environment" />
 </p>
 
 ---
