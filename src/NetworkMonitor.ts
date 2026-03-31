@@ -1,5 +1,20 @@
-
 import { Logger } from './Logger';
+
+const getRedirectedUrl = (originalUrl: string): string => {
+  const baseUrl = Logger.getBaseUrl();
+  if (!baseUrl) return originalUrl;
+
+  try {
+    const original = new URL(originalUrl);
+    const replacement = new URL(baseUrl);
+    
+    // Replace origin (protocol + host + port)
+    return originalUrl.replace(original.origin, replacement.origin);
+  } catch (e) {
+    // If not a valid absolute URL, we can't reliably redirect it
+    return originalUrl;
+  }
+};
 
 export const setupNetworkMonitor = () => {
   if (Logger.isNetworkPatched) return;
@@ -22,10 +37,10 @@ export const setupNetworkMonitor = () => {
           url = input;
         } else if (input instanceof URL) {
           url = input.toString();
-        } else if (input instanceof Request) {
+        } else if (input instanceof (window as any).Request) {
           url = input.url;
           method = input.method;
-          body = input.body;
+          body = (input as any).body;
           headers = (input.headers as any);
         }
 
@@ -39,15 +54,24 @@ export const setupNetworkMonitor = () => {
         url = 'Unknown URL';
       }
 
+      // REDIRECTION LOGIC
+      const redirectedUrl = getRedirectedUrl(url);
+      const newArgs = [...args];
+      if (typeof newArgs[0] === 'string') {
+        newArgs[0] = redirectedUrl;
+      } else if (newArgs[0] instanceof URL) {
+        newArgs[0] = new URL(redirectedUrl);
+      }
+
       const reqId = Logger.logRequest({
-        url,
+        url: redirectedUrl !== url ? `${url} -> ${redirectedUrl}` : url,
         method,
         data: body,
         headers,
       });
 
       try {
-        const response = await originalFetch(...args);
+        const response = await originalFetch(...(newArgs as any));
         
 
         const clonedResponse = response.clone();
@@ -61,12 +85,20 @@ export const setupNetworkMonitor = () => {
                 responseData = text;
             }
             
+            const responseHeaders: any = {};
+            if (response.headers && (response.headers as any).forEach) {
+              (response.headers as any).forEach((value: string, key: string) => {
+                responseHeaders[key] = value;
+              });
+            }
+
             Logger.logResponse({
               reqId,
               status: response.status,
               data: responseData,
               url,
               method,
+              headers: responseHeaders,
             });
         }).catch(() => {
             Logger.logResponse({
@@ -98,15 +130,27 @@ export const setupNetworkMonitor = () => {
   if (XHR._isPatchedByDebugLogger) return;
   XHR._isPatchedByDebugLogger = true;
 
+  const originalSetRequestHeader = XHR.setRequestHeader;
+
   XHR.open = function(method: string, url: string | URL) {
     this._method = method.toUpperCase();
-    this._url = typeof url === 'string' ? url : url.toString();
+    const originalUrl = typeof url === 'string' ? url : url.toString();
+    this._url = originalUrl;
+    this._headers = {};
+    
+    const redirectedUrl = getRedirectedUrl(originalUrl);
     try {
-        return originalOpen.apply(this, arguments as any);
+        return originalOpen.apply(this, [method, redirectedUrl, ...Array.prototype.slice.call(arguments, 2)] as any);
     } catch (err) {
         console.error('DebugLogger: Error in XHR.open', err);
         throw err;
     }
+  };
+
+  XHR.setRequestHeader = function(header: string, value: string) {
+    if (!this._headers) this._headers = {};
+    this._headers[header] = value;
+    return originalSetRequestHeader.apply(this, arguments as any);
   };
 
   XHR.send = function(body: any) {
@@ -116,6 +160,7 @@ export const setupNetworkMonitor = () => {
       url: xhr._url,
       method: xhr._method,
       data: body,
+      headers: xhr._headers,
     });
 
     const onComplete = () => {
@@ -141,12 +186,22 @@ export const setupNetworkMonitor = () => {
         responseData = '[Error reading response]';
       }
 
+      const responseHeaders: any = {};
+      const headersStr = this.getAllResponseHeaders();
+      if (headersStr) {
+        headersStr.split('\r\n').forEach((line: string) => {
+          const [key, ...val] = line.split(': ');
+          if (key && val.length > 0) responseHeaders[key] = val.join(': ');
+        });
+      }
+
       Logger.logResponse({
         reqId,
         status: this.status,
         data: responseData,
         url: xhr._url,
         method: xhr._method,
+        headers: responseHeaders,
       });
     };
 

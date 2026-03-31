@@ -1,13 +1,13 @@
-import React, { useState, ReactNode } from 'react';
-import { 
-  TouchableOpacity, 
-  Modal, 
-  View, 
-  Text, 
-  TextInput, 
-  StyleSheet, 
-  Alert, 
-  KeyboardAvoidingView, 
+import React, { useState, ReactNode, useRef, useEffect } from 'react';
+import {
+  TouchableOpacity,
+  Modal,
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  Alert,
+  KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { DebugMonitor } from './DebugMonitor';
 import { setupNetworkMonitor } from './NetworkMonitor';
-import { useEffect } from 'react';
+import { setupConsoleMonitor } from './ConsoleMonitor';
 
 interface DebugTriggerProps {
   children?: ReactNode;
@@ -23,55 +23,18 @@ interface DebugTriggerProps {
   clicksNeeded?: number;
   isDemo?: boolean;
   onEnvChange?: (newEnv: 'demo' | 'prod') => void;
+  onBaseUrlChange?: (newUrl: string) => void;
+  baseUrls?: string[] | { title: string; url: string }[];
   enabled?: boolean;
   checkAccess?: () => boolean | Promise<boolean>;
-  language?: 'az' | 'en' | 'ru' | 'auto';
+  language?: 'az' | 'en' | 'ru' | 'tr' | 'auto';
 }
 
-const TRANSLATIONS = {
-  az: {
-    login: 'Debug Girişi',
-    clicksDetected: (n: number) => `Ardıcıl ${n} klik aşkar edildi`,
-    enterPassword: 'Şifrəni daxil edin',
-    accessDenied: 'Giriş rədd edildi',
-    wrongPassword: 'Şifrə yanlışdır',
-    cancel: 'Ləğv et',
-    confirm: 'Təsdiqlə',
-  },
-  en: {
-    login: 'Debug Login',
-    clicksDetected: (n: number) => `${n} consecutive clicks detected`,
-    enterPassword: 'Enter password',
-    accessDenied: 'Access Denied',
-    wrongPassword: 'Wrong password',
-    cancel: 'Cancel',
-    confirm: 'Confirm',
-  },
-  ru: {
-    login: 'Отладка Вход',
-    clicksDetected: (n: number) => `Обнаружено ${n} кликов подряд`,
-    enterPassword: 'Введите пароль',
-    accessDenied: 'Доступ запрещен',
-    wrongPassword: 'Неверный пароль',
-    cancel: 'Отмена',
-    confirm: 'Подтвердить',
-  }
-};
-
-const getDeviceLanguage = (): 'az' | 'en' | 'ru' => {
-  try {
-    const locale = Platform.OS === 'ios'
-      ? NativeModules.SettingsManager?.settings?.AppleLocale ||
-        NativeModules.SettingsManager?.settings?.AppleLanguages?.[0]
-      : NativeModules.I18nManager?.localeIdentifier;
-
-    const lang = locale?.split(/[-_]/)[0] || 'en';
-    if (lang === 'az') return 'az';
-    if (lang === 'ru') return 'ru';
-  } catch (e) {
-    // Fallback
-  }
-  return 'en';
+const TRANSLATIONS: Record<string, any> = {
+  az: { login: 'Debug Girişi', clicks: (n: number) => `Ardıcıl ${n} klik aşkar edildi`, passPlaceholder: 'Şifrəni daxil edin', cancel: 'Ləğv et', confirm: 'Təsdiqlə', error: 'Xəta', wrongPass: 'Şifrə yanlışdır' },
+  en: { login: 'Debug Login', clicks: (n: number) => `${n} clicks detected`, passPlaceholder: 'Enter password', cancel: 'Cancel', confirm: 'Confirm', error: 'Error', wrongPass: 'Wrong password' },
+  ru: { login: 'Вход', clicks: (n: number) => `Обнаружено ${n} кликов`, passPlaceholder: 'Введите пароль', cancel: 'Отмена', confirm: 'Ок', error: 'Ошибка', wrongPass: 'Неверный пароль' },
+  tr: { login: 'Giriş', clicks: (n: number) => `${n} tıklama tespit edildi`, passPlaceholder: 'Şifreyi giriniz', cancel: 'İptal', confirm: 'Onayla', error: 'Hata', wrongPass: 'Yanlış şifre' }
 };
 
 const COLORS = {
@@ -80,263 +43,164 @@ const COLORS = {
   primary: '#38BDF8',
   text: '#F8FAFC',
   textDim: '#94A3B8',
-  error: '#EF4444',
   border: '#334155',
-  overlay: 'rgba(2, 6, 23, 0.85)',
+  overlay: 'rgba(2, 6, 23, 0.9)',
 };
 
-export const DebugTrigger = ({ 
-  children, 
-  password = '2024', 
+const getDeviceLanguage = (): string => {
+  try {
+    const locale = Platform.OS === 'ios'
+      ? NativeModules.SettingsManager?.settings?.AppleLocale || NativeModules.SettingsManager?.settings?.AppleLanguages?.[0]
+      : NativeModules.I18nManager?.localeIdentifier;
+
+    const lang = locale?.split(/[-_]/)[0] || 'en';
+    if (TRANSLATIONS[lang]) return lang;
+  } catch (e) {}
+  return 'en';
+};
+
+export const DebugTrigger = ({
+  children,
+  password = '2024',
   clicksNeeded = 5,
   isDemo = false,
   onEnvChange,
+  onBaseUrlChange,
+  baseUrls,
   enabled = true,
   checkAccess,
-  language = 'auto'
+  language = 'auto',
 }: DebugTriggerProps) => {
-  const activeLang = language === 'auto' ? getDeviceLanguage() : language;
-  const t = TRANSLATIONS[activeLang];
-  useEffect(() => {
-    // Automatically setup network monitoring when the trigger is used
-    setupNetworkMonitor();
-  }, []);
-
   const [clicks, setClicks] = useState(0);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [inputPassword, setInputPassword] = useState('');
   const [showMonitor, setShowMonitor] = useState(false);
   const [showFloatingButton, setShowFloatingButton] = useState(false);
+  const [inputPassword, setInputPassword] = useState('');
+  const timerRef = useRef<any>(null);
 
-  const handleClick = async () => {
+  const activeLang = language === 'auto' ? getDeviceLanguage() : language;
+  const t = TRANSLATIONS[activeLang] || TRANSLATIONS.en;
+
+  useEffect(() => {
+    setupNetworkMonitor();
+    setupConsoleMonitor();
+  }, []);
+
+  const handleClick = () => {
     if (!enabled) return;
+    if (timerRef.current) clearTimeout(timerRef.current);
 
     const nextClicks = clicks + 1;
     setClicks(nextClicks);
+
     if (nextClicks >= clicksNeeded) {
-      if (checkAccess) {
-        const hasAccess = await checkAccess();
-        if (!hasAccess) {
-          setClicks(0);
-          return;
-        }
-      }
-      const isPasswordEmpty = password === undefined || password === null || password === '';
-      if (isPasswordEmpty) {
-        setShowMonitor(true);
-        setShowFloatingButton(true);
-      } else {
-        setShowPasswordModal(true);
-      }
+      handleOpen();
       setClicks(0);
+    } else {
+      timerRef.current = setTimeout(() => setClicks(0), 2000);
     }
-    
-    // Auto-reset clicks after 2 seconds of inactivity
-    setTimeout(() => setClicks(0), 2000);
+  };
+
+  const handleOpen = async () => {
+    if (checkAccess) {
+      const hasAccess = await checkAccess();
+      if (!hasAccess) return;
+    }
+    if (!password) {
+      setShowMonitor(true);
+      setShowFloatingButton(true);
+    } else {
+      setShowPasswordModal(true);
+    }
   };
 
   const handlePasswordSubmit = () => {
     if (inputPassword === password) {
       setShowPasswordModal(false);
-      setInputPassword('');
       setShowMonitor(true);
       setShowFloatingButton(true);
+      setInputPassword('');
     } else {
-      Alert.alert(t.accessDenied, t.wrongPassword);
+      Alert.alert(t.error, t.wrongPass);
       setInputPassword('');
     }
   };
 
   return (
-    <>
-      <TouchableOpacity activeOpacity={1} onPress={handleClick}>
+    <View style={{ flex: 1 }} onTouchEnd={handleClick}>
+      <View style={{ flex: 1 }} pointerEvents="box-none">
         {children}
-      </TouchableOpacity>
+      </View>
 
-      <Modal 
-        visible={showMonitor} 
-        animationType="slide" 
-        onRequestClose={() => setShowMonitor(false)}
-      >
-        <DebugMonitor 
-          onClose={() => setShowMonitor(false)} 
-          envConfig={onEnvChange ? {
-            currentEnv: isDemo ? 'demo' : 'prod',
-            onEnvChange: onEnvChange
-          } : undefined}
+      <Modal visible={showMonitor} animationType="slide">
+        <DebugMonitor
+          onClose={() => setShowMonitor(false)}
+          envConfig={onEnvChange ? { currentEnv: isDemo ? 'demo' : 'prod', onEnvChange } : undefined}
+          onBaseUrlChange={onBaseUrlChange}
+          baseUrls={baseUrls}
           onExitDebugMode={() => setShowFloatingButton(false)}
           language={language}
         />
       </Modal>
 
-      <Modal 
-        visible={showPasswordModal} 
-        transparent 
-        animationType="fade"
-        onRequestClose={() => setShowPasswordModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={styles.overlay}>
-                <KeyboardAvoidingView 
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={styles.keyboardView}
-                >
-                    <View style={styles.modal}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.title}>{t.login}</Text>
-                            <Text style={styles.subtitle}>{t.clicksDetected(clicksNeeded)}</Text>
-                        </View>
-                        
-                        <TextInput
-                            style={styles.input}
-                            placeholder={t.enterPassword}
-                            placeholderTextColor={COLORS.textDim}
-                            secureTextEntry
-                            value={inputPassword}
-                            onChangeText={setInputPassword}
-                            autoFocus
-                            onSubmitEditing={handlePasswordSubmit}
-                        />
-
-                        <View style={styles.actions}>
-                            <TouchableOpacity 
-                                onPress={() => {
-                                    setShowPasswordModal(false);
-                                    setInputPassword('');
-                                }} 
-                                style={styles.cancelBtn}
-                            >
-                                <Text style={styles.cancelText}>{t.cancel}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity 
-                                onPress={handlePasswordSubmit} 
-                                style={styles.submitBtn}
-                            >
-                                <Text style={styles.submitText}>{t.confirm}</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </KeyboardAvoidingView>
-            </View>
+      <Modal visible={showPasswordModal} transparent animationType="fade">
+        <TouchableWithoutFeedback onPress={() => setShowPasswordModal(false)}>
+          <View style={styles.overlay}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView}>
+              <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+                <View style={styles.modal}>
+                  <Text style={styles.title}>{t.login}</Text>
+                  <Text style={styles.subtitle}>{t.clicks(clicksNeeded)}</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={t.passPlaceholder}
+                    placeholderTextColor={COLORS.textDim}
+                    secureTextEntry
+                    value={inputPassword}
+                    onChangeText={setInputPassword}
+                    autoFocus
+                    onSubmitEditing={handlePasswordSubmit}
+                  />
+                  <View style={styles.actions}>
+                    <TouchableOpacity onPress={() => setShowPasswordModal(false)} style={styles.cancelBtn}>
+                      <Text style={styles.cancelText}>{t.cancel}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handlePasswordSubmit} style={styles.submitBtn}>
+                      <Text style={styles.submitText}>{t.confirm}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
+            </KeyboardAvoidingView>
+          </View>
         </TouchableWithoutFeedback>
       </Modal>
 
-      {showFloatingButton && !showMonitor && !showPasswordModal && (
-        <TouchableOpacity 
-           style={styles.floatingButton} 
-           onPress={() => {
-              if (password) {
-                setShowPasswordModal(true);
-              } else {
-                setShowMonitor(true);
-              }
-           }}
-           activeOpacity={0.8}
+      {showFloatingButton && (
+        <TouchableOpacity
+          style={styles.floatingButton}
+          onPress={() => (password ? setShowPasswordModal(true) : setShowMonitor(true))}
+          activeOpacity={0.8}
         >
-           <Text style={styles.floatingButtonText}>DEBUG</Text>
+          <Text style={styles.floatingButtonText}>DEBUG</Text>
         </TouchableOpacity>
       )}
-    </>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: { 
-    flex: 1, 
-    backgroundColor: COLORS.overlay, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
-  },
-  keyboardView: {
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  modal: { 
-    backgroundColor: COLORS.surface, 
-    padding: 24, 
-    borderRadius: 24, 
-    width: '85%',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10
-  },
-  modalHeader: {
-    marginBottom: 20,
-    alignItems: 'center'
-  },
-  title: { 
-    fontSize: 20, 
-    fontWeight: '800', 
-    color: COLORS.text,
-    marginBottom: 4
-  },
-  subtitle: {
-    fontSize: 12,
-    color: COLORS.textDim,
-    textAlign: 'center'
-  },
-  input: { 
-    backgroundColor: COLORS.background,
-    borderWidth: 1, 
-    borderColor: COLORS.border, 
-    padding: 15, 
-    borderRadius: 12, 
-    color: COLORS.text,
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20
-  },
-  actions: { 
-    flexDirection: 'row', 
-    gap: 12 
-  },
-  cancelBtn: { 
-    flex: 1,
-    padding: 14, 
-    borderRadius: 12, 
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border
-  },
-  submitBtn: { 
-    flex: 2,
-    backgroundColor: COLORS.primary,
-    padding: 14, 
-    borderRadius: 12, 
-    alignItems: 'center' 
-  },
-  cancelText: {
-    color: COLORS.textDim,
-    fontWeight: '600'
-  },
-  submitText: { 
-    color: COLORS.background, 
-    fontWeight: 'bold' 
-  },
-  floatingButton: {
-    position: 'absolute',
-    bottom: 100,
-    right: 20,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    zIndex: 9999,
-  },
-  floatingButtonText: {
-    color: COLORS.background,
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 1
-  }
+  overlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'center', alignItems: 'center' },
+  keyboardView: { width: '100%', alignItems: 'center' },
+  modal: { backgroundColor: COLORS.surface, padding: 24, borderRadius: 24, width: '85%', borderWidth: 1, borderColor: COLORS.border },
+  title: { fontSize: 20, fontWeight: '900', color: COLORS.text, marginBottom: 4, textAlign: 'center' },
+  subtitle: { color: COLORS.textDim, textAlign: 'center', marginBottom: 20, fontSize: 13 },
+  input: { backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border, padding: 15, borderRadius: 12, color: COLORS.text, fontSize: 16, textAlign: 'center', marginBottom: 20 },
+  actions: { flexDirection: 'row', gap: 12 },
+  cancelBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
+  submitBtn: { flex: 2, backgroundColor: COLORS.primary, padding: 14, borderRadius: 12, alignItems: 'center' },
+  cancelText: { color: COLORS.textDim, fontWeight: 'bold' },
+  submitText: { color: COLORS.background, fontWeight: '900' },
+  floatingButton: { position: 'absolute', bottom: 100, right: 20, backgroundColor: COLORS.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, elevation: 10, shadowColor: COLORS.primary, shadowAlpha: 0.5, shadowRadius: 10 },
+  floatingButtonText: { color: COLORS.background, fontWeight: '900', fontSize: 11, letterSpacing: 1 },
 });

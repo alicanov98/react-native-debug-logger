@@ -1,9 +1,8 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
+  StyleSheet,
   View,
   Text,
-  FlatList,
-  StyleSheet,
   TouchableOpacity,
   ScrollView,
   Share,
@@ -13,6 +12,7 @@ import {
   TextInput,
   SafeAreaView,
   StatusBar,
+  FlatList,
   Dimensions,
   Platform,
   NativeModules,
@@ -25,662 +25,503 @@ interface DebugMonitorProps {
     currentEnv: string;
     onEnvChange: (newEnv: 'demo' | 'prod') => void;
   };
+  onBaseUrlChange?: (newUrl: string) => void;
+  baseUrls?: string[] | { title: string; url: string }[];
   onExitDebugMode?: () => void;
-  language?: 'az' | 'en' | 'ru' | 'auto';
+  language?: 'az' | 'en' | 'ru' | 'tr' | 'auto';
 }
 
 const TRANSLATIONS: Record<string, any> = {
-  az: {
-    title: 'Debug Monitor',
-    found: 'qeyd tapıldı',
-    search: 'Axtar...',
-    clear: 'Təmizlə',
-    all: 'Hamısı',
-    empty: 'Log tapılmadı',
-    export: 'Bütün Logları Export Et',
-    back: 'Geri',
-    details: 'Təfərrüat',
-    share: 'Paylaş',
-    exit: 'Xitam',
-    close: 'Bağla',
-    envTitle: 'Mühit Dəyişikliyi',
-    envMessage: (env: string) => `API-ı ${env} rejimine keçirmək istəyirsiniz?`,
-    cancel: 'Ləğv et',
-    confirm: 'Təsdiqlə',
-    error: 'Xəta',
-    login: 'Debug Girişi',
-    clicksDetected: (n: number) => `Ardıcıl ${n} klik aşkar edildi`,
-    enterPassword: 'Şifrəni daxil edin',
-    accessDenied: 'Giriş rədd edildi',
-    wrongPassword: 'Şifrə yanlışdır',
-    statusCode: 'Status kodu',
-  },
-  en: {
-    title: 'Debug Monitor',
-    found: 'entries found',
-    search: 'Search...',
-    clear: 'Clear',
-    all: 'All',
-    empty: 'No logs found',
-    export: 'Export All Logs',
-    back: 'Back',
-    details: 'Details',
-    share: 'Share',
-    exit: 'Exit',
-    close: 'Close',
-    envTitle: 'Environment Change',
-    envMessage: (env: string) => `Switch API to ${env} mode?`,
-    cancel: 'Cancel',
-    confirm: 'Confirm',
-    error: 'Error',
-    login: 'Debug Login',
-    clicksDetected: (n: number) => `${n} consecutive clicks detected`,
-    enterPassword: 'Enter password',
-    accessDenied: 'Access Denied',
-    wrongPassword: 'Wrong password',
-    statusCode: 'Status code',
-  },
-  ru: {
-    title: 'Дебаг Монитор',
-    found: 'записей найдено',
-    search: 'Поиск...',
-    clear: 'Очистить',
-    all: 'Все',
-    empty: 'Логи не найдены',
-    export: 'Экспортировать все логи',
-    back: 'Назад',
-    details: 'Детали',
-    share: 'Поделиться',
-    exit: 'Выход',
-    close: 'Закрыть',
-    envTitle: 'Смена среды',
-    envMessage: (env: string) => `Переключить API в режим ${env}?`,
-    cancel: 'Отмена',
-    confirm: 'Подтвердить',
-    error: 'Ошибка',
-    login: 'Отладка Вход',
-    clicksDetected: (n: number) => `Обнаружено ${n} кликов подряд`,
-    enterPassword: 'Введите пароль',
-    accessDenied: 'Доступ запрещен',
-    wrongPassword: 'Неверный пароль',
-    statusCode: 'Код статуса',
-  },
-  tr: {
-    title: 'Debug Monitörü',
-    found: 'kayıt bulundu',
-    search: 'Ara...',
-    clear: 'Temizle',
-    all: 'Hepsi',
-    empty: 'Log bulunamadı',
-    export: 'Tüm Logları Dışa Aktar',
-    back: 'Geri',
-    details: 'Detaylar',
-    share: 'Paylaş',
-    exit: 'Çıkış',
-    close: 'Kapat',
-    envTitle: 'Ortam Değişikliği',
-    envMessage: (env: string) => `API'yi ${env} moduna geçirmek istiyor musunuz?`,
-    cancel: 'İptal',
-    confirm: 'Onayla',
-    error: 'Hata',
-    login: 'Hata Ayıklama Girişi',
-    clicksDetected: (n: number) => `Üst üste ${n} tıklama tespit edildi`,
-    enterPassword: 'Şifreyi girin',
-    accessDenied: 'Erişim Reddedildi',
-    wrongPassword: 'Hatalı şifre',
-    statusCode: 'Durum kodu',
-  },
-  zh: {
-    title: '调试监视器',
-    found: '条记录',
-    search: '搜索...',
-    clear: '清除',
-    all: '全部',
-    empty: '未找到日志',
-    export: '导出所有日志',
-    back: '返回',
-    details: '详情',
-    share: '分享',
-    exit: '退出',
-    close: '关闭',
-    envTitle: '环境变更',
-    envMessage: (env: string) => `将 API 切换到 ${env} 模式？`,
-    cancel: '取消',
-    confirm: '确认',
-    error: '错误',
-    login: '调试登录',
-    clicksDetected: (n: number) => `检测到连续 ${n} 次点击`,
-    enterPassword: '输入密码',
-    accessDenied: '拒绝访问',
-    wrongPassword: '密码错误',
-    statusCode: '状态代码',
-  },
-  ur: {
-    title: 'ڈبگ مانیٹر',
-    found: 'ریکارڈ مل گئے',
-    search: 'تلاش کریں...',
-    clear: 'صاف کریں',
-    all: 'تمام',
-    empty: 'کوئی لاگ نہیں ملا',
-    export: 'تمام لاگز ایکسپورٹ کریں',
-    back: 'واپس',
-    details: 'تفصیلات',
-    share: 'شیئر کریں',
-    exit: 'باہر نکلیں',
-    close: 'بند کریں',
-    envTitle: 'ماحول کی تبدیلی',
-    envMessage: (env: string) => `کیا آپ API کو ${env} موڈ میں تبدیل کرنا چاہتے ہیں؟`,
-    cancel: 'منسوخ کریں',
-    confirm: 'تصدیق کریں',
-    error: 'خرابی',
-    login: 'ڈبگ لاگ ان',
-    clicksDetected: (n: number) => `مسلسل ${n} کلکس ملے`,
-    enterPassword: 'پاس ورڈ درج کریں',
-    accessDenied: 'رسائی مسترد کر دی گئی',
-    wrongPassword: 'غلط پاس ورڈ',
-    statusCode: 'اسٹیٹس کوڈ',
-  },
-  hi: {
-    title: 'डीबग मॉनिटर',
-    found: 'रिकॉर्ड मिले',
-    search: 'खोजें...',
-    clear: 'साफ करें',
-    all: 'सभी',
-    empty: 'कोई लॉग नहीं मिला',
-    export: 'सभी लॉग निर्यात करें',
-    back: 'पीछे',
-    details: 'विवरण',
-    share: 'साझा करें',
-    exit: 'बाहر निकलें',
-    close: 'बंद करें',
-    envTitle: 'वातावरण परिवर्तन',
-    envMessage: (env: string) => `क्या आप API को ${env} मोड में बदलना चाहते हैं?`,
-    cancel: 'रद्द करें',
-    confirm: 'पुष्टि करें',
-    error: 'त्रुटि',
-    login: 'डीबग लॉगिन',
-    clicksDetected: (n: number) => `लगातार ${n} क्लिक मिले`,
-    enterPassword: 'पासवर्ड दर्ज करें',
-    accessDenied: 'पहुंच अस्वीकार',
-    wrongPassword: 'गलत पासवर्ड',
-    statusCode: 'स्थिति कोड',
-  },
-  th: {
-    title: 'Debug Monitor',
-    found: 'พบรายการ',
-    search: 'ค้นหา...',
-    clear: 'ล้าง',
-    all: 'ทั้งหมด',
-    empty: 'ไม่พบประวัติ',
-    export: 'ส่งออกประวัติทั้งหมด',
-    back: 'ย้อนกลับ',
-    details: 'รายละเอียด',
-    share: 'แชร์',
-    exit: 'ออก',
-    close: 'ปิด',
-    envTitle: 'เปลี่ยนสภาพแวดล้อม',
-    envMessage: (env: string) => `เปลี่ยน API เป็นโหมด ${env} หรือไม่?`,
-    cancel: 'ยกเลิก',
-    confirm: 'ยืนยัน',
-    error: 'ข้อผิดพลาด',
-    login: 'เข้าสู่ระบบดีบั๊ก',
-    clicksDetected: (n: number) => `ตรวจพบการคลิกติดต่อกัน ${n} ครั้ง`,
-    enterPassword: 'ป้อนรหัสผ่าน',
-    accessDenied: 'ปฏิเสธการเข้าถึง',
-    wrongPassword: 'รหัสผ่านผิด',
-    statusCode: 'รหัสสถานะ',
-  }
-};
-
-const getDeviceLanguage = (): string => {
-  try {
-    const locale = Platform.OS === 'ios'
-      ? NativeModules.SettingsManager?.settings?.AppleLocale ||
-        NativeModules.SettingsManager?.settings?.AppleLanguages?.[0]
-      : NativeModules.I18nManager?.localeIdentifier;
-
-    const lang = locale?.split(/[-_]/)[0] || 'en';
-    if (TRANSLATIONS[lang]) return lang;
-  } catch (e) {
-    // Fallback to English on detection error
-  }
-  return 'en';
+  az: { title: 'Debug Monitor', entries: 'qeyd', search: 'Axtar...', clear: 'Təmizlə', all: 'Hamısı', logs: 'Loglar', network: 'Şəbəkə', db: 'Baza', nav: 'Nav', settings: 'Ayarlar', export: 'Export', close: 'Bağla', exit: 'Xitam', back: 'Geri', empty: 'Log tapılmadı', request: 'Sorğu', response: 'Cavab', method: 'METOD', url: 'URL', headers: 'HEADERS', status: 'STATUS KODU', body: 'BODY', customUrl: 'Fərdi URL', selectUrl: 'MƏNBƏ SEÇİMİ', manualUrl: 'ƏL İLƏ DAXİL ET' },
+  en: { title: 'Debug Monitor', entries: 'entries', search: 'Search...', clear: 'Clear', all: 'All', logs: 'Logs', network: 'Network', db: 'DB', nav: 'Nav', settings: 'Settings', export: 'Export', close: 'Close', exit: 'Exit', back: 'Back', empty: 'No logs found', request: 'Request', response: 'Response', method: 'METHOD', url: 'URL', headers: 'HEADERS', status: 'STATUS CODE', body: 'BODY', customUrl: 'Custom URL', selectUrl: 'SELECT SOURCE', manualUrl: 'MANUAL ENTRY' },
+  tr: { title: 'Debug Monitor', entries: 'kayıt', search: 'Ara...', clear: 'Temizle', all: 'Hepsi', logs: 'Loglar', network: 'Ağ', db: 'Veri', nav: 'Nav', settings: 'Ayarlar', export: 'Dışa Aktar', close: 'Kapat', exit: 'Çıkış', back: 'Geri', empty: 'Log bulunamadı', request: 'Sorgu', response: 'Yanıt', method: 'METOD', url: 'URL', headers: 'HEADERS', status: 'DURUM KODU', body: 'BODY' },
+  ru: { title: 'Дебаг Монитор', entries: 'записей', search: 'Поиск...', clear: 'Очистить', all: 'Все', logs: 'Логи', network: 'Сеть', db: 'База', nav: 'Нав', settings: 'Настройки', export: 'Экспорт', close: 'Закрыть', exit: 'Выход', back: 'Назад', empty: 'Логи не найдены', request: 'Запрос', response: 'Ответ', method: 'МЕТОД', url: 'URL', headers: 'HEADERS', status: 'КОД СТАТУСА', body: 'ТЕЛО' }
 };
 
 const COLORS = {
-  background: '#0F172A',
+  background: '#020617',
   surface: '#1E293B',
   surfaceLight: '#334155',
   primary: '#38BDF8',
   secondary: '#94A3B8',
   text: '#F8FAFC',
-  textDim: '#94A3B8',
-  success: '#22C55E',
+  textDim: '#64748B',
+  success: '#10B981',
   warning: '#F59E0B',
-  error: '#EF4444',
-  border: '#334155',
-  header: '#1E293B',
+  error: '#F43F5E',
+  border: '#1E293B60',
+  accent: '#A855F7',
+  glass: 'rgba(30, 41, 59, 0.4)',
+  highlight: '#FFFFFF10'
 };
 
-export const DebugMonitor = ({ onClose, envConfig, onExitDebugMode, language = 'auto' }: DebugMonitorProps) => {
-  const activeLang = language === 'auto' ? getDeviceLanguage() : language;
-  const t = TRANSLATIONS[activeLang] || TRANSLATIONS.en;
-
+export const DebugMonitor = ({ onClose, envConfig, onBaseUrlChange, baseUrls, onExitDebugMode, language = 'auto' }: DebugMonitorProps) => {
   const [logs, setLogs] = useState<LogEntry[]>(Logger.getLogs());
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
-  const [isDemo, setIsDemo] = useState(envConfig?.currentEnv === 'demo');
+  const [activeTab, setActiveTab] = useState<TabType>('ALL');
+  const [detailTab, setDetailTab] = useState<DetailTab>('RESPONSE');
+  const [showMenu, setShowMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [baseUrl, setBaseUrl] = useState(Logger.getBaseUrl());
+  const [manualUrl, setManualUrl] = useState('');
+  const [customUrlEntries, setCustomUrlEntries] = useState<{title: string, url: string}[]>([]);
   const [filterMethod, setFilterMethod] = useState<string | 'ALL'>('ALL');
-  const [filterStatus, setFilterStatus] = useState<string | 'ALL'>('ALL');
 
   useEffect(() => {
-    const unsubscribe = Logger.subscribe(newLogs => {
-      setLogs(newLogs);
-    });
+    const unsubscribe = Logger.subscribe(newLogs => setLogs(newLogs));
     return unsubscribe;
   }, []);
 
-  useEffect(() => {
-    if (envConfig) {
-      setIsDemo(envConfig.currentEnv === 'demo');
+  const t = useMemo(() => {
+    let lang = language;
+    if (lang === 'auto') {
+      try {
+        const locale = Platform.OS === 'ios'
+          ? NativeModules.SettingsManager?.settings?.AppleLocale || NativeModules.SettingsManager?.settings?.AppleLanguages?.[0]
+          : NativeModules.I18nManager?.localeIdentifier;
+        lang = (locale?.split(/[-_]/)[0] || 'en') as any;
+      } catch (e) { lang = 'en'; }
     }
-  }, [envConfig?.currentEnv]);
+    return TRANSLATIONS[lang] || TRANSLATIONS.en;
+  }, [language]);
+
+  const tabCounts = useMemo(() => {
+    return {
+      ALL: logs.length,
+      NETWORK: logs.filter((l: LogEntry) => ['request', 'response', 'error'].includes(l.type)).length,
+      LOGS: logs.filter((l: LogEntry) => l.type === 'info').length,
+      /* DB: logs.filter((l: LogEntry) => l.type === 'database').length,
+      NAV: logs.filter((l: LogEntry) => l.type === 'navigation').length, */
+      SETTINGS: 0
+    };
+  }, [logs]);
 
   const filteredLogs = useMemo(() => {
     return logs.filter((log: LogEntry) => {
-      const matchesSearch = searchQuery === '' || 
-        (log.url?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-         log.message?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-         log.method?.toLowerCase().includes(searchQuery.toLowerCase()));
-      
+      const typeMatch =
+        activeTab === 'ALL' ? true :
+          activeTab === 'NETWORK' ? ['request', 'response', 'error'].includes(log.type) :
+            activeTab === 'LOGS' ? log.type === 'info' :
+              /* activeTab === 'DB' ? log.type === 'database' :
+                activeTab === 'NAV' ? log.type === 'navigation' : */ false;
+
+      if (!typeMatch && activeTab !== 'SETTINGS') return false;
+
+      const matchesSearch = searchQuery === '' ||
+        (log.url?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          log.message?.toLowerCase().includes(searchQuery.toLowerCase()));
+
       const matchesMethod = filterMethod === 'ALL' || log.method === filterMethod;
-      
-      let matchesStatus = true;
-      if (filterStatus !== 'ALL') {
-        const status = log.status || 0;
-        if (filterStatus === '2xx') matchesStatus = status >= 200 && status < 300;
-        else if (filterStatus === '4xx') matchesStatus = status >= 400 && status < 500;
-        else if (filterStatus === '5xx') matchesStatus = status >= 500;
-        else if (filterStatus === 'ERROR') matchesStatus = log.type === 'error' || status >= 400;
-        else matchesStatus = status.toString() === filterStatus;
-      }
-      
-      return matchesSearch && matchesMethod && matchesStatus;
+
+      return matchesSearch && matchesMethod;
     });
-  }, [logs, searchQuery, filterMethod, filterStatus]);
+  }, [logs, activeTab, searchQuery, filterMethod]);
 
   const handleShare = async () => {
     try {
-      const logsJson = JSON.stringify(logs, null, 2);
-      await Share.share({
-        message: logsJson,
-        title: 'Debug Logs - React Native',
+      await Share.share({ message: JSON.stringify(logs, null, 2), title: 'Debug Logs' });
+    } catch (e) { Alert.alert('Error', 'Could not share logs'); }
+  };
+
+  const generateCurl = (log: LogEntry) => {
+    if (!log.url) return '';
+    let curl = `curl -X ${log.method || 'GET'} "${log.url}"`;
+    if (log.headers) {
+      Object.keys(log.headers).forEach(key => {
+        curl += ` -H "${key}: ${log.headers[key]}"`;
       });
-    } catch (error) {
-      Alert.alert('Error', 'Could not share logs');
     }
+    if (log.requestData) {
+      curl += ` -d '${JSON.stringify(log.requestData)}'`;
+    }
+    return curl;
   };
 
-  const handleEnvToggle = (value: boolean) => {
-    if (!envConfig) return;
+  const handleSaveSettings = () => {
+    if (!manualUrl.trim()) {
+        Alert.alert('Error', 'Please enter a valid URL');
+        return;
+    }
     
-    const newEnv = value ? 'demo' : 'prod';
-    Alert.alert(
-      t.envTitle,
-      t.envMessage(newEnv.toUpperCase()),
-      [
-        { text: t.cancel, style: 'cancel' },
-        { 
-          text: t.confirm, 
-          onPress: () => {
-            setIsDemo(value);
-            envConfig.onEnvChange(newEnv);
-          }
-        }
-      ]
-    );
-  };
-
-  const getLogTypeColor = (type: LogType, status?: number) => {
-    if (status && status >= 400) return COLORS.error;
-    switch (type) {
-      case 'request': return COLORS.primary;
-      case 'response': return COLORS.success;
-      case 'error': return COLORS.error;
-      default: return COLORS.secondary;
+    const newUrl = manualUrl.trim();
+    Logger.setBaseUrl(newUrl);
+    setBaseUrl(newUrl);
+    
+    const predefinedList = baseUrls ? (Array.isArray(baseUrls) ? baseUrls : []) : [];
+    const exists = predefinedList.some(item => (typeof item === 'string' ? item : item.url) === newUrl) || 
+                   customUrlEntries.some(item => item.url === newUrl);
+                   
+    if (!exists) {
+        setCustomUrlEntries([{ title: `Custom ${customUrlEntries.length + 1}`, url: newUrl }, ...customUrlEntries]);
     }
+    
+    setManualUrl('');
+    if (onBaseUrlChange) onBaseUrlChange(newUrl);
+    Alert.alert('Success', 'New source applied and added to list');
   };
 
   const renderLogItem = ({ item }: { item: LogEntry }) => {
-    const logColor = getLogTypeColor(item.type, item.status);
-    
+    const isError = item.type === 'error' || (item.status && item.status >= 400);
+    const indicatorColor = isError ? COLORS.error :
+      item.type === 'database' ? COLORS.accent :
+        item.type === 'navigation' ? COLORS.warning :
+          item.status && item.status >= 200 && item.status < 300 ? COLORS.success :
+            COLORS.primary;
+
     return (
-      <TouchableOpacity
-        activeOpacity={0.7}
-        style={styles.logItem}
-        onPress={() => setSelectedLog(item)}
-      >
-        <View style={[styles.logIndicator, { backgroundColor: logColor }]} />
-        <View style={styles.logContent}>
+      <TouchableOpacity activeOpacity={0.8} style={styles.logItem} onPress={() => { setSelectedLog(item); setDetailTab('RESPONSE'); }}>
+        <View style={[styles.logIndicator, { backgroundColor: indicatorColor }]} />
+        <View style={styles.logBody}>
           <View style={styles.logHeader}>
-            <Text style={[styles.method, { color: logColor }]}>
-              {item.method || (item.type === 'error' ? 'ERR' : 'INFO')}
-            </Text>
-            {item.status && (
-              <Text style={[styles.status, { color: logColor }]}>
-                {item.status}
+            <View style={[styles.badge, { backgroundColor: indicatorColor + '15' }]}>
+              <Text style={[styles.logMethod, { color: indicatorColor }]}>
+                {item.method || item.type.toUpperCase()}
               </Text>
-            )}
-            <Text style={styles.timestamp}>
-              {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </Text>
+            </View>
+            {item.status && <Text style={[styles.logStatus, { color: indicatorColor }]}>{item.status}</Text>}
+            <Text style={styles.logTime}>{new Date(item.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}</Text>
           </View>
-          <Text style={styles.url} numberOfLines={2}>
-            {item.url || item.message}
-          </Text>
+          <Text style={styles.logUrl} numberOfLines={2}>{item.url || item.message}</Text>
+          {item.durationMs !== undefined && (
+            <View style={styles.logMetaBox}>
+              <Text style={styles.logMeta}>{item.durationMs ?? 0}ms</Text>
+              <View style={styles.metaDivider} />
+              <Text style={styles.logMeta}>{item.size || '0.00kb'}</Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     );
   };
 
-  const renderDetails = () => {
-    if (!selectedLog) return null;
-
+  const renderSettings = () => {
+    const predefinedList = baseUrls ? (Array.isArray(baseUrls) ? baseUrls : []) : [];
+    
+    // Build the selection list
+    const allSources: { title: string, url?: string, type: 'env' | 'url', val: any }[] = [];
+    
+    if (envConfig) {
+        allSources.push({ title: 'PRODUCTIVE (PROD)', type: 'env', val: 'prod' });
+        allSources.push({ title: 'DEMONSTRATION (DEMO)', type: 'env', val: 'demo' });
+    }
+    
+    predefinedList.forEach(item => {
+        const title = typeof item === 'string' ? item : item.title;
+        const url = typeof item === 'string' ? item : item.url;
+        allSources.push({ title, url, type: 'url', val: url });
+    });
+    
+    customUrlEntries.forEach(item => {
+        allSources.push({ title: item.title, url: item.url, type: 'url', val: item.url });
+    });
+    
     return (
-      <Modal visible={!!selectedLog} animationType="slide" transparent>
-        <SafeAreaView style={styles.detailsModal}>
-          <View style={styles.detailsHeader}>
-            <TouchableOpacity onPress={() => setSelectedLog(null)} style={styles.backButton}>
-              <Text style={styles.detailsHeaderText}>← {t.back}</Text>
-            </TouchableOpacity>
-            <Text style={styles.detailsTitle}>{t.details}</Text>
-            <TouchableOpacity 
-                onPress={() => Share.share({ message: JSON.stringify(selectedLog, null, 2) })} 
-                style={styles.backButton}
-            >
-              <Text style={styles.detailsHeaderText}>{t.share}</Text>
+      <ScrollView style={styles.settingsContainer}>
+        {allSources.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderBox}>
+              <Text style={styles.sectionTitle}>{t.selectUrl}</Text>
+            </View>
+            <View style={styles.card}>
+              {allSources.map((item: any, index: number) => {
+                // If we have a baseUrl set, environment choice shouldn't be "active" visually
+                const isUrlActive = baseUrl !== '' && baseUrl === item.val;
+                const isEnvActive = baseUrl === '' && item.type === 'env' && envConfig?.currentEnv === item.val;
+                const isActive = item.type === 'env' ? isEnvActive : isUrlActive;
+
+                return (
+                  <TouchableOpacity 
+                    key={index} 
+                    style={[styles.urlOption, isActive && styles.urlOptionActive]} 
+                    onPress={() => {
+                        if (item.type === 'env') {
+                            setBaseUrl('');
+                            Logger.setBaseUrl('');
+                            envConfig?.onEnvChange(item.val);
+                        } else {
+                            setBaseUrl(item.val);
+                            Logger.setBaseUrl(item.val);
+                            if (onBaseUrlChange) onBaseUrlChange(item.val);
+                        }
+                    }}
+                  >
+                    <View style={styles.urlOptionInfo}>
+                        <Text style={[styles.urlOptionTitle, isActive && styles.urlOptionTitleActive]}>{item.title}</Text>
+                        {item.url && <Text style={styles.urlOptionUrl} numberOfLines={1}>{item.url}</Text>}
+                    </View>
+                    {isActive && <View style={styles.activeDot} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        <View style={[styles.section, { marginTop: allSources.length > 0 ? 32 : 0 }]}>
+          <View style={styles.sectionHeaderBox}>
+            <Text style={styles.sectionTitle}>{t.manualUrl}</Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.inputLabel}>{t.customUrl.toUpperCase()}</Text>
+            <TextInput 
+              style={styles.textInput} 
+              value={manualUrl} 
+              onChangeText={setManualUrl} 
+              placeholder="https://api.example.com" 
+              placeholderTextColor={COLORS.textDim}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity style={styles.saveBtn} onPress={handleSaveSettings}>
+              <Text style={styles.saveBtnText}>APPLY CHANGES</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView style={styles.detailsScrollView}>
-            <View style={styles.detailCard}>
-              <DetailField label="URL" value={selectedLog.url} selectable />
-              <DetailField label="Method" value={selectedLog.method} />
-              {selectedLog.status && (
-                <DetailField 
-                  label="Status" 
-                  value={selectedLog.status.toString()} 
-                  color={selectedLog.status >= 400 ? COLORS.error : COLORS.success} 
-                />
-              )}
-            </View>
+        </View>
 
-            <JsonField label="Request Data" data={selectedLog.requestData} />
-            <JsonField label="Response Data" data={selectedLog.responseData} />
-            <JsonField label="Headers" data={selectedLog.headers} />
-            
-            {selectedLog.message && (
-              <View style={[styles.detailCard, { borderLeftColor: COLORS.error, borderLeftWidth: 4 }]}>
-                <Text style={styles.label}>Error Message</Text>
-                <Text style={[styles.value, { color: COLORS.error }]}>{selectedLog.message}</Text>
-              </View>
-            )}
-            <View style={{ height: 40 }} />
-          </ScrollView>
-        </SafeAreaView>
-      </Modal>
+        <View style={[styles.section, { marginTop: 32 }]}>
+          <View style={styles.sectionHeaderBox}>
+            <Text style={styles.sectionTitle}>ADVANCED TOOLS</Text>
+          </View>
+          <View style={styles.card}>
+            <TouchableOpacity style={styles.toolBtn} onPress={handleShare}>
+              <Text style={styles.toolBtnText}>EXPORT JSON REPORT</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.toolBtn, { marginTop: 12, borderColor: COLORS.error + '40' }]} onPress={() => Logger.clearLogs()}>
+              <Text style={[styles.toolBtnText, { color: COLORS.error }]}>WIPE ALL RECORDS</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        <View style={{ height: 60 }} />
+      </ScrollView>
     );
   };
 
   return (
-    <View style={styles.mainContainer}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-      <SafeAreaView style={styles.safeArea}>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      <SafeAreaView style={{ flex: 1 }}>
         <View style={styles.header}>
-            <View>
-                <Text style={styles.headerTitle}>{t.title}</Text>
-                <Text style={styles.headerSubtitle}>{logs.length} {t.found}</Text>
+          <View style={styles.headerInfo}>
+            <View style={styles.titleRow}>
+              <View style={styles.titleDot} />
+              <Text style={styles.headerTitle}>{t.title.toUpperCase()}</Text>
             </View>
-            <View style={styles.headerActions}>
-                {envConfig && (
-                    <View style={styles.envSwitcher}>
-                         <Text style={[styles.envLabel, { color: isDemo ? COLORS.warning : COLORS.success }]}>
-                            {isDemo ? 'DEMO' : 'PROD'}
-                         </Text>
-                         <Switch 
-                            value={isDemo} 
-                            onValueChange={handleEnvToggle}
-                            trackColor={{ false: COLORS.surfaceLight, true: COLORS.surfaceLight }}
-                            thumbColor={isDemo ? COLORS.warning : COLORS.success}
-                            ios_backgroundColor={COLORS.surface}
-                         />
-                    </View>
-                )}
-                {onExitDebugMode && (
-                  <TouchableOpacity 
-                    onPress={() => {
-                        onExitDebugMode();
-                        onClose();
-                    }} 
-                    style={styles.exitButton}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Text style={styles.exitButtonText}>{t.exit}</Text>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity onPress={onClose} style={styles.closeButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <Text style={styles.closeButtonText}>{t.close}</Text>
-                </TouchableOpacity>
-            </View>
+            <Text style={styles.headerSubtitle}>{logs.length} {t.entries}</Text>
+          </View>
+          <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+            <Text style={styles.closeBtnText}>{t.close.toUpperCase()}</Text>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.searchBar}>
-            <TextInput
+        <View style={styles.tabContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
+            {(['ALL', 'NETWORK', 'LOGS', /* 'DB', 'NAV', */ 'SETTINGS'] as TabType[]).map(tab => (
+              <TouchableOpacity
+                key={tab}
+                onPress={() => setActiveTab(tab)}
+                style={[styles.tab, activeTab === tab && styles.tabActive]}
+              >
+                <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                  {tab === 'ALL' ? t.all : tab === 'NETWORK' ? t.network : tab === 'LOGS' ? t.logs : /* tab === 'DB' ? t.db : tab === 'NAV' ? t.nav : */ t.settings}
+                  {tab !== 'SETTINGS' && ` (${(tabCounts as any)[tab]})`}
+                </Text>
+                {activeTab === tab && <View style={styles.activeTabDot} />}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {activeTab !== 'SETTINGS' && (
+          <View style={styles.searchRow}>
+            <View style={styles.searchBox}>
+              <TextInput
                 style={styles.searchInput}
                 placeholder={t.search}
                 placeholderTextColor={COLORS.textDim}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-            />
-            <TouchableOpacity onPress={() => Logger.clearLogs()} style={styles.clearIcon}>
-                <Text style={{ color: COLORS.error, fontSize: 12 }}>{t.clear}</Text>
-            </TouchableOpacity>
-        </View>
+              />
+            </View>
+          </View>
+        )}
 
-        <View style={styles.filterArea}>
-            {/* Row 1: All | Error | Methods */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-                <TouchableOpacity onPress={() => { setFilterMethod('ALL'); setFilterStatus('ALL'); }} style={[styles.filterTab, filterMethod === 'ALL' && filterStatus === 'ALL' && styles.filterTabActive]}>
-                    <Text style={[styles.filterTabText, filterMethod === 'ALL' && filterStatus === 'ALL' && styles.filterTabTextActive]}>{t.all}</Text>
+        {activeTab === 'SETTINGS' ? renderSettings() : (
+          <FlatList
+            data={filteredLogs}
+            renderItem={renderLogItem}
+            keyExtractor={(item: LogEntry) => item.id}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={<View style={styles.emptyContainer}><Text style={styles.emptyText}>{t.empty}</Text></View>}
+          />
+        )}
+
+        <Modal visible={!!selectedLog} animationType="slide" transparent>
+          <SafeAreaView style={styles.detailsModal}>
+            <View style={styles.detailsHeader}>
+              <View style={styles.detailsTopRow}>
+                <TouchableOpacity onPress={() => { setSelectedLog(null); setShowMenu(false); }} style={styles.backBtn}>
+                  <Text style={styles.backBtnText}>←</Text>
                 </TouchableOpacity>
+                <Text style={styles.detailsPerfText}>
+                  {selectedLog?.durationMs ?? 0}ms, {selectedLog?.size || '0.00kb'}
+                </Text>
+                <TouchableOpacity onPress={() => setShowMenu(!showMenu)} style={styles.menuBtn}>
+                  <Text style={styles.menuBtnText}>⋮</Text>
+                </TouchableOpacity>
+              </View>
 
-                <TouchableOpacity 
-                    onPress={() => setFilterStatus(filterStatus === 'ERROR' ? 'ALL' : 'ERROR')} 
-                    style={[styles.filterTab, filterStatus === 'ERROR' && { backgroundColor: COLORS.error, borderColor: COLORS.error }]}
+              {showMenu && (
+                <View style={styles.dropdownMenu}>
+                  <TouchableOpacity style={styles.menuItem} onPress={() => { Share.share({ message: JSON.stringify(selectedLog, null, 2) }); setShowMenu(false); }}>
+                    <Text style={styles.menuItemText}>Share</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.menuItem} onPress={() => { Share.share({ message: generateCurl(selectedLog!) }); setShowMenu(false); }}>
+                    <Text style={styles.menuItemText}>Copy cURL</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]} onPress={() => setShowMenu(false)}>
+                    <Text style={styles.menuItemText}>Close</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              <View style={styles.detailsTabs}>
+                <TouchableOpacity
+                  style={[styles.detailTab, detailTab === 'REQUEST' && styles.detailTabActive]}
+                  onPress={() => setDetailTab('REQUEST')}
                 >
-                    <Text style={[styles.filterTabText, filterStatus === 'ERROR' && styles.filterTabTextActive]}>{t.error}</Text>
+                  <Text style={[styles.detailTabText, detailTab === 'REQUEST' && styles.detailTabTextActive]}>
+                    {t.request.toUpperCase()}
+                  </Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.detailTab, detailTab === 'RESPONSE' && styles.detailTabActive]}
+                  onPress={() => setDetailTab('RESPONSE')}
+                >
+                  <Text style={[styles.detailTabText, detailTab === 'RESPONSE' && styles.detailTabTextActive]}>
+                    {t.response.toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
-                <View style={styles.divider} />
-                
-                {['GET', 'POST', 'PUT', 'DELETE'].map(m => (
-                    <TouchableOpacity key={m} onPress={() => setFilterMethod(m)} style={[styles.filterTab, filterMethod === m && styles.filterTabActive]}>
-                        <Text style={[styles.filterTabText, filterMethod === m && styles.filterTabTextActive]}>{m}</Text>
-                    </TouchableOpacity>
-                ))}
+            <ScrollView style={styles.detailsContent} showsVerticalScrollIndicator={false}>
+              {detailTab === 'REQUEST' ? (
+                <>
+                  <Section label={t.method} value={selectedLog?.method} />
+                  <Section label={t.url} value={selectedLog?.url} selectable />
+                  <Section label={t.headers} json={selectedLog?.headers} />
+                  <Section label={t.body} json={selectedLog?.requestData} />
+                </>
+              ) : (
+                <>
+                  <Section label={t.status} value={selectedLog?.status?.toString()} color={selectedLog?.status && selectedLog.status >= 400 ? COLORS.error : COLORS.success} />
+                  <Section label={t.headers} json={selectedLog?.headers} />
+                  <Section label={t.body} json={selectedLog?.responseData} />
+                </>
+              )}
+              <View style={{ height: 100 }} />
             </ScrollView>
-
-            {/* Row 2: Status Code Label + Values */}
-            <View style={styles.statusRow}>
-                <Text style={styles.statusLabel}>{t.statusCode} : </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
-                    {['2xx', '4xx', '5xx'].map(s => (
-                        <TouchableOpacity key={s} onPress={() => setFilterStatus(s)} style={[styles.filterTab, filterStatus === s && styles.filterTabActive]}>
-                            <Text style={[styles.filterTabText, filterStatus === s && styles.filterTabTextActive]}>{s}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-            </View>
-        </View>
-
-        <FlatList
-          data={filteredLogs}
-          renderItem={renderLogItem}
-          keyExtractor={(item: LogEntry) => item.id}
-          contentContainerStyle={styles.listContent}
-          keyboardShouldPersistTaps="handled"
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>{t.empty}</Text>
-            </View>
-          }
-        />
-
-        <View style={styles.footer}>
-            <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-                <Text style={styles.shareButtonText}>{t.export}</Text>
-            </TouchableOpacity>
-        </View>
-
-        {renderDetails()}
+          </SafeAreaView>
+        </Modal>
       </SafeAreaView>
     </View>
   );
 };
 
-const DetailField = ({ label, value, color, selectable }: { label: string; value?: string; color?: string; selectable?: boolean }) => {
-  if (!value) return null;
+const Section = ({ label, value, json, color, selectable }: any) => {
+  if (!value && (!json || Object.keys(json).length === 0)) return null;
   return (
-    <View style={styles.detailField}>
-      <Text style={styles.label}>{label}</Text>
-      <Text selectable={selectable} style={[styles.value, { color: color || COLORS.text }]}>{value}</Text>
+    <View style={styles.sectionBox}>
+      <Text style={styles.sectionLabel}>{label}</Text>
+      {value ? (
+        <Text selectable={selectable} style={[styles.sectionValue, { color: color || COLORS.text }]}>{value}</Text>
+      ) : (
+        <View style={styles.jsonBox}>
+          <Text selectable style={styles.jsonText}>{JSON.stringify(json, null, 2)}</Text>
+        </View>
+      )}
     </View>
   );
 };
 
-const JsonField = ({ label, data }: { label: string; data: any }) => {
-  if (!data || Object.keys(data).length === 0) return null;
-  const jsonStr = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-  
-  return (
-    <View style={styles.jsonCard}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.jsonContainer}>
-        <Text selectable style={styles.jsonText}>{jsonStr}</Text>
-      </View>
-    </View>
-  );
-};
+type TabType = 'ALL' | 'NETWORK' | 'LOGS' | /* 'DB' | 'NAV' | */ 'SETTINGS';
+type DetailTab = 'REQUEST' | 'RESPONSE';
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1, backgroundColor: COLORS.background },
-  safeArea: { flex: 1 },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingHorizontal: 20, 
-    paddingVertical: 15,
-    backgroundColor: COLORS.header,
-    borderBottomWidth:1,
-    borderBottomColor: COLORS.border
-  },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text, letterSpacing: -0.5 },
-  headerSubtitle: { fontSize: 11, color: COLORS.textDim, marginTop: 1 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  envSwitcher: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COLORS.surface, paddingLeft: 8, paddingRight: 2, paddingVertical: 2, borderRadius: 20 },
-  envLabel: { fontSize: 10, fontWeight: 'bold' },
-  closeButton: { padding: 4 },
-  closeButtonText: { color: COLORS.primary, fontWeight: '600', fontSize: 14 },
-  exitButton: { padding: 4 },
-  exitButtonText: { color: COLORS.error, fontWeight: '600', fontSize: 14 },
-  
-  searchBar: { paddingHorizontal: 20, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' },
-  searchInput: { 
-    flex: 1, 
-    backgroundColor: COLORS.surface, 
-    height: 40, 
-    borderRadius: 10, 
-    paddingHorizontal: 15, 
-    color: COLORS.text,
-    fontSize: 14 
-  },
-  clearIcon: { marginLeft: 15 },
-
-  filterArea: { paddingBottom: 5 },
-  filterScroll: { paddingHorizontal: 15, alignItems: 'center', gap: 6, paddingVertical: 5 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 15, marginTop: 4 },
-  statusLabel: { fontSize: 11, color: COLORS.textDim, fontWeight: 'bold', marginRight: 5 },
-  errorRow: { paddingHorizontal: 15, marginTop: 8 },
-  filterTab: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border },
-  filterTabActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  filterTabText: { fontSize: 10, color: COLORS.textDim, fontWeight: 'bold' },
-  filterTabTextActive: { color: COLORS.background },
-  divider: { width: 1, height: 15, backgroundColor: COLORS.border, marginHorizontal: 4 },
-
-  listContent: { paddingBottom: 100 },
-  logItem: { 
-    flexDirection: 'row', 
-    backgroundColor: COLORS.surface, 
-    marginHorizontal: 15, 
-    marginVertical: 4, 
-    borderRadius: 12, 
-    overflow: 'hidden',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4
-  },
-  logIndicator: { width: 6 },
-  logContent: { flex: 1, padding: 12 },
-  logHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  method: { fontSize: 12, fontWeight: '900', width: 60 },
-  status: { fontSize: 12, fontWeight: '900', marginHorizontal: 8 },
-  timestamp: { fontSize: 10, color: COLORS.textDim, marginLeft: 'auto' },
-  url: { fontSize: 13, color: COLORS.text, lineHeight: 18 },
-
-  footer: { 
-    position: 'absolute', 
-    bottom: 0, 
-    left: 0, 
-    right: 0, 
-    padding: 20, 
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border
-  },
-  shareButton: { 
-    backgroundColor: COLORS.primary, 
-    height: 50, 
-    borderRadius: 12, 
-    justifyContent: 'center', 
-    alignItems: 'center' 
-  },
-  shareButtonText: { color: COLORS.background, fontWeight: 'bold', fontSize: 16 },
-
-  emptyContainer: { padding: 40, alignItems: 'center' },
-  emptyText: { color: COLORS.textDim, fontSize: 16 },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: Platform.OS === 'android' ? 40 : 20 },
+  headerInfo: { flex: 1 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  titleDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.primary, marginRight: 8, shadowColor: COLORS.primary, shadowRadius: 4, shadowOpacity: 0.8 },
+  headerTitle: { fontSize: 16, fontWeight: '900', color: COLORS.text, letterSpacing: 1 },
+  headerSubtitle: { color: COLORS.textDim, fontSize: 11, fontWeight: '600' },
+  closeBtn: { backgroundColor: COLORS.surfaceLight, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+  closeBtnText: { color: COLORS.primary, fontWeight: 'bold', fontSize: 10 },
+  tabContainer: { borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  tabScroll: { paddingHorizontal: 15 },
+  tab: { paddingVertical: 18, paddingHorizontal: 14, alignItems: 'center' },
+  activeTabDot: { position: 'absolute', bottom: 8, width: 4, height: 4, borderRadius: 2, backgroundColor: COLORS.primary },
+  tabActive: {},
+  tabText: { color: COLORS.textDim, fontWeight: 'bold', fontSize: 11, letterSpacing: 0.5 },
+  tabTextActive: { color: COLORS.primary },
+  searchRow: { padding: 15, paddingBottom: 5 },
+  searchBox: { backgroundColor: COLORS.surface, height: 44, borderRadius: 12, paddingHorizontal: 15, justifyContent: 'center', borderWidth: 1, borderColor: COLORS.border },
+  searchInput: { color: COLORS.text, fontSize: 14, fontWeight: '500' },
+  listContent: { padding: 15, paddingBottom: 40 },
+  logItem: { flexDirection: 'row', backgroundColor: COLORS.surface, marginBottom: 10, borderRadius: 16, borderLeftWidth: 0, overflow: 'hidden', borderBottomWidth: 1, borderBottomColor: COLORS.highlight },
+  logIndicator: { width: 4 },
+  logBody: { flex: 1, padding: 14 },
+  logHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginRight: 8 },
+  logMethod: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+  logStatus: { fontSize: 12, fontWeight: '900', marginHorizontal: 8 },
+  logTime: { fontSize: 10, color: COLORS.textDim, marginLeft: 'auto', fontWeight: '500' },
+  logUrl: { color: COLORS.text, fontSize: 13, lineHeight: 19, fontWeight: '600' },
+  logMetaBox: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
+  metaDivider: { width: 1, height: 10, backgroundColor: COLORS.border, marginHorizontal: 8 },
+  logMeta: { fontSize: 10, color: COLORS.secondary, fontWeight: 'bold' },
+  emptyContainer: { padding: 60, alignItems: 'center' },
+  emptyText: { textAlign: 'center', color: COLORS.textDim, fontSize: 13, fontWeight: '500' },
+  settingsContainer: { flex: 1, padding: 20 },
+  section: { marginBottom: 12 },
+  sectionHeaderBox: { marginBottom: 12, borderLeftWidth: 3, borderLeftColor: COLORS.primary, paddingLeft: 10 },
+  sectionTitle: { color: COLORS.text, fontSize: 11, fontWeight: '900', letterSpacing: 1.5 },
+  card: { backgroundColor: COLORS.surface, padding: 24, borderRadius: 20, borderWidth: 1, borderColor: COLORS.border },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 20 },
+  text: { color: COLORS.textDim, fontSize: 13, fontWeight: '500' },
+  inputLabel: { color: COLORS.textDim, fontSize: 10, fontWeight: 'bold', marginBottom: 12, letterSpacing: 0.5 },
+  textInput: { borderBottomWidth: 1, borderBottomColor: COLORS.primary + '40', paddingVertical: 12, color: COLORS.text, fontSize: 16, marginBottom: 24, fontWeight: '600' },
+  saveBtn: { backgroundColor: COLORS.primary, padding: 16, borderRadius: 14, alignItems: 'center', shadowColor: COLORS.primary, shadowRadius: 8, shadowOpacity: 0.3 },
+  saveBtnText: { color: COLORS.background, fontWeight: '900', fontSize: 12, letterSpacing: 1 },
+  toolBtn: { borderWidth: 1.5, borderColor: COLORS.border, padding: 16, borderRadius: 14, alignItems: 'center' },
+  toolBtnText: { color: COLORS.text, fontWeight: 'bold', fontSize: 12, letterSpacing: 0.5 },
+  urlOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, backgroundColor: COLORS.background, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: COLORS.border },
+  urlOptionActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primary + '05' },
+  urlOptionInfo: { flex: 1 },
+  urlOptionTitle: { color: COLORS.text, fontSize: 13, fontWeight: 'bold', marginBottom: 2 },
+  urlOptionTitleActive: { color: COLORS.primary },
+  urlOptionUrl: { color: COLORS.textDim, fontSize: 11 },
+  activeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.primary },
 
   // Details Modal
   detailsModal: { flex: 1, backgroundColor: COLORS.background },
-  detailsHeader: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'space-between', 
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border
-  },
-  backButton: { paddingVertical: 5, paddingHorizontal: 10 },
-  detailsHeaderText: { color: COLORS.primary, fontSize: 16, fontWeight: '600' },
-  detailsTitle: { color: COLORS.text, fontSize: 18, fontWeight: 'bold' },
-  detailsScrollView: { flex: 1, padding: 20 },
-  detailCard: { backgroundColor: COLORS.surface, padding: 15, borderRadius: 16, marginBottom: 15 },
-  detailField: { marginBottom: 15 },
-  label: { fontSize: 11, fontWeight: 'bold', color: COLORS.primary, textTransform: 'uppercase', marginBottom: 6, letterSpacing: 1 },
-  value: { fontSize: 15, color: COLORS.text, lineHeight: 22 },
-  jsonCard: { backgroundColor: COLORS.surface, padding: 15, borderRadius: 16, marginBottom: 15 },
-  jsonContainer: { backgroundColor: COLORS.background, padding: 12, borderRadius: 10, marginTop: 8 },
-  jsonText: { fontSize: 12, fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace', color: COLORS.success },
+  detailsHeader: { paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  detailsTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20 },
+  detailsPerfText: { color: COLORS.text, fontSize: 16, fontWeight: '600' },
+  backBtnText: { color: COLORS.primary, fontSize: 24, fontWeight: '300' },
+  menuBtn: { padding: 5 },
+  menuBtnText: { color: COLORS.primary, fontSize: 24, fontWeight: 'bold' },
+  dropdownMenu: { position: 'absolute', top: 60, right: 20, backgroundColor: COLORS.surface, borderRadius: 12, width: 150, zIndex: 1000, elevation: 10, shadowColor: '#000', shadowRadius: 10, shadowOpacity: 0.5 },
+  menuItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  menuItemText: { color: COLORS.text, fontSize: 14, fontWeight: '600' },
+  detailsTabs: { flexDirection: 'row', paddingHorizontal: 20 },
+  detailTab: { flex: 1, alignItems: 'center', paddingVertical: 12, borderBottomWidth: 3, borderBottomColor: 'transparent' },
+  detailTabActive: { borderBottomColor: COLORS.primary },
+  detailTabText: { color: COLORS.textDim, fontSize: 13, fontWeight: 'bold' },
+  detailTabTextActive: { color: COLORS.primary },
+  detailsContent: { flex: 1, padding: 20 },
+  sectionBox: { marginBottom: 30 },
+  sectionLabel: { color: COLORS.secondary, fontSize: 12, fontWeight: '900', marginBottom: 12, letterSpacing: 1 },
+  sectionValue: { color: COLORS.text, fontSize: 15, lineHeight: 22, fontWeight: '400' },
+  jsonBox: { backgroundColor: COLORS.surface, padding: 15, borderRadius: 16 },
+  jsonText: { color: COLORS.success, fontSize: 12, fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace', lineHeight: 18 },
 });

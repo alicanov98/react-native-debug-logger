@@ -1,5 +1,4 @@
-
-export type LogType = 'request' | 'response' | 'error' | 'info';
+export type LogType = 'request' | 'response' | 'error' | 'info' | 'database' | 'navigation';
 
 export interface LogEntry {
   id: string;
@@ -12,6 +11,8 @@ export interface LogEntry {
   headers?: any;
   status?: number;
   message?: string;
+  durationMs?: number;
+  size?: string;
 }
 
 class DebugLogger {
@@ -19,6 +20,7 @@ class DebugLogger {
   private logs: LogEntry[] = [];
   private listeners: ((logs: LogEntry[]) => void)[] = [];
   public isNetworkPatched = false;
+  private baseUrl: string = '';
 
   private constructor() {}
 
@@ -27,6 +29,14 @@ class DebugLogger {
       DebugLogger.instance = new DebugLogger();
     }
     return DebugLogger.instance;
+  }
+
+  public setBaseUrl(url: string) {
+    this.baseUrl = url;
+  }
+
+  public getBaseUrl(): string {
+    return this.baseUrl;
   }
 
   private notify() {
@@ -59,7 +69,7 @@ class DebugLogger {
     };
 
     this.logs.unshift(log);
-    if (this.logs.length > 200) {
+    if (this.logs.length > 500) {
       this.logs.pop();
     }
     this.notify();
@@ -72,15 +82,22 @@ class DebugLogger {
     data?: any;
     url?: string;
     method?: string;
+    headers?: any;
   }) {
+    const size = data.data ? `${(JSON.stringify(data.data).length / 1024).toFixed(2)} kb` : '0.00 kb';
     if (data.reqId) {
       const logIndex = this.logs.findIndex(l => l.id === data.reqId);
       if (logIndex !== -1) {
+        const start = new Date(this.logs[logIndex].timestamp).getTime();
+        const durationMs = Date.now() - start;
         this.logs[logIndex] = {
           ...this.logs[logIndex],
           type: 'response',
           status: data.status,
           responseData: data.data,
+          headers: data.headers || this.logs[logIndex].headers,
+          durationMs,
+          size,
         };
         this.notify();
         return;
@@ -95,6 +112,9 @@ class DebugLogger {
       method: data.method?.toUpperCase(),
       status: data.status,
       responseData: data.data,
+      headers: data.headers,
+      durationMs: 0,
+      size,
     });
     this.notify();
   }
@@ -110,12 +130,15 @@ class DebugLogger {
     if (data.reqId) {
       const logIndex = this.logs.findIndex(l => l.id === data.reqId);
       if (logIndex !== -1) {
+        const start = new Date(this.logs[logIndex].timestamp).getTime();
+        const durationMs = Date.now() - start;
         this.logs[logIndex] = {
           ...this.logs[logIndex],
           type: 'error',
           status: data.status,
           message: data.message,
           responseData: data.data,
+          durationMs,
         };
         this.notify();
         return;
@@ -131,6 +154,40 @@ class DebugLogger {
       status: data.status,
       message: data.message,
       responseData: data.data,
+    });
+    this.notify();
+  }
+
+  public logInfo(message: string, data?: any) {
+    this.logs.unshift({
+      id: Math.random().toString(36).substring(7),
+      type: 'info',
+      timestamp: new Date().toISOString(),
+      message,
+      requestData: data,
+    });
+    this.notify();
+  }
+
+  public logDatabase(query: string, data?: any) {
+    this.logs.unshift({
+      id: Math.random().toString(36).substring(7),
+      type: 'database',
+      timestamp: new Date().toISOString(),
+      message: query,
+      requestData: data,
+    });
+    this.notify();
+  }
+
+  public logNavigation(route: string, params?: any) {
+    this.logs.unshift({
+      id: Math.random().toString(36).substring(7),
+      type: 'navigation',
+      timestamp: new Date().toISOString(),
+      message: `Navigated to: ${route}`,
+      requestData: params,
+      url: route,
     });
     this.notify();
   }
@@ -151,8 +208,8 @@ class DebugLogger {
     };
   }
 
-  public init() {
-  }
+  public init() {}
 }
 
 export const Logger = DebugLogger.getInstance();
+export default Logger;
