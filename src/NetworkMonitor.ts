@@ -4,14 +4,30 @@ const getRedirectedUrl = (originalUrl: string): string => {
   const baseUrl = Logger.getBaseUrl();
   if (!baseUrl) return originalUrl;
 
+  // EXCLUSION RULES: Don't redirect internal dev server or system requests
+  const isInternal = 
+    originalUrl.includes('localhost:8081') || 
+    originalUrl.includes('10.0.2.2:8081') || // Android emulator proxy
+    originalUrl.includes('127.0.0.1') ||
+    originalUrl.includes('/symbolicate') ||
+    originalUrl.includes('.bundle') ||
+    originalUrl.includes('.hot-update');
+
+  if (isInternal) return originalUrl;
+
   try {
+    // If originalUrl is relative (starts with /), join it with baseUrl
+    if (originalUrl.startsWith('/')) {
+        const base = new URL(baseUrl);
+        return base.origin + originalUrl;
+    }
+
     const original = new URL(originalUrl);
     const replacement = new URL(baseUrl);
     
     // Replace origin (protocol + host + port)
     return originalUrl.replace(original.origin, replacement.origin);
   } catch (e) {
-    // If not a valid absolute URL, we can't reliably redirect it
     return originalUrl;
   }
 };
@@ -64,20 +80,22 @@ export const setupNetworkMonitor = () => {
       }
 
       const reqId = Logger.logRequest({
-        url: redirectedUrl !== url ? `${url} -> ${redirectedUrl}` : url,
+        url: redirectedUrl,
+        originalUrl: url,
+        isRedirected: redirectedUrl !== url,
         method,
         data: body,
         headers,
       });
 
       try {
-        const response = await originalFetch(...(newArgs as any));
+        const response = await (originalFetch as any)(...newArgs);
         
 
         const clonedResponse = response.clone();
         
 
-        clonedResponse.text().then(text => {
+        clonedResponse.text().then((text: string) => {
             let responseData;
             try {
                 responseData = JSON.parse(text);
@@ -139,6 +157,7 @@ export const setupNetworkMonitor = () => {
     this._headers = {};
     
     const redirectedUrl = getRedirectedUrl(originalUrl);
+    this._redirectedUrl = redirectedUrl;
     try {
         return originalOpen.apply(this, [method, redirectedUrl, ...Array.prototype.slice.call(arguments, 2)] as any);
     } catch (err) {
@@ -157,7 +176,9 @@ export const setupNetworkMonitor = () => {
     const xhr = this as any;
     
     const reqId = Logger.logRequest({
-      url: xhr._url,
+      url: xhr._redirectedUrl || xhr._url,
+      originalUrl: xhr._url,
+      isRedirected: !!xhr._redirectedUrl && xhr._redirectedUrl !== xhr._url,
       method: xhr._method,
       data: body,
       headers: xhr._headers,

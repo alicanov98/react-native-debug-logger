@@ -1,13 +1,14 @@
 {
   "name": "react-native-debug-logger",
-  "version": "1.3.0",
-  "description": "A premium hidden debug logger and network monitor for React Native apps",
+  "version": "2.0.0",
+  "description": "A powerful network debugger and logger for React Native that works even in production builds.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
     "dist",
-    "src",
-    "README.md"
+    "images",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc",
@@ -40,7 +41,17 @@
     "logger",
     "axios",
     "network-monitor",
-    "monitor"
+    "monitor",
+    "network-debugger",
+    "network-inspector",
+    "api-debugger",
+    "api-switcher",
+    "interceptor",
+    "fetch-interceptor",
+    "production-debugging",
+    "react-native-devtools",
+    "debugging-tool",
+    "request-logger"
   ],
   "author": "Alijanov",
   "license": "MIT",

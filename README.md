@@ -1,113 +1,313 @@
-# React Native Debug Logger 🚀
+# 🚀 react-native-debug-logger
 
-A premium, high-performance debug monitor and network logger for React Native applications. Intercept Network requests (Fetch, XHR, Axios) and track logs with a beautiful hidden UI.
+**Production-Ready Network Monitor & Debug Tool for React Native**
 
-**Zero forced dependencies.** Works with any storage engine (MMKV, AsyncStorage, Realm, etc.).
+[![npm version](https://img.shields.io/npm/v/react-native-debug-logger.svg?style=flat-square)](https://www.npmjs.com/package/react-native-debug-logger)
+[![license](https://img.shields.io/npm/l/react-native-debug-logger.svg?style=flat-square)](https://github.com/alicanov98/react-native-debug-logger/blob/main/LICENSE)
+[![platform](https://img.shields.io/badge/platform-ios%20%7C%20android-blue.svg?style=flat-square)](https://reactnative.dev/)
 
-![Aesthetic](https://img.shields.io/badge/UI-Premium-blueviolet)
-![Type](https://img.shields.io/badge/TypeScript-Ready-blue)
-![Deps](https://img.shields.io/badge/Dependencies-Zero-green)
+A powerful network debugger and logger for React Native that works even in **production builds**.
 
-## Features ✨
+Capture network requests, console logs, and dynamically switch API environments — all inside your app with a modern hidden UI.
 
-- 🛠 **Universal Network Monitoring**: Automatically intercepts `fetch` and `XMLHttpRequest`.
-- 🔗 **Automatic URL Redirection**: Change your API's Base URL at runtime from the Debug Settings. All app traffic (Fetch/Axios) will follow!
-- 📦 **Optional Axios Support**: Move beyond standard interceptors. Works only if you have Axios.
-- 📱 **Premium UI**: Dark-themed, glassmorphic design with a unified **"ALL"** log view.
-- 🔍 **Advanced Filtering**: Search by URL, Method, or Filter by log type (Request, Response, Error).
-- 🔐 **Secure Access**: Clicks-based hidden trigger with optional password protection.
-- 🧪 **Dynamic Security**: `isEnabled` and `checkAccess` props for role-based debugging.
-- 📤 **Log Export**: Share entire log history via native share sheet or copy as **cURL**.
-- 🌐 **Flexible Environment Switcher**: Built-in toggle and Predefined URL lists.
+---
 
-## Installation 📥
+## 👀 Preview
 
-```bash
-npm install react-native-debug-logger
-```
+<p align="center">
+  <img src="images/example.png" width="150" alt="Monitor List" />
+  <img src="images/example1.png" width="150" alt="Network Details" />
+  <img src="images/example2.png" width="150" alt="Console Logs" />
+  <img src="images/example3.png" width="150" alt="Settings & Environment" />
+</p>
 
-## Usage 🛠
+---
 
-### ⚡️ Quickest Setup (Automatic)
+## ✨ Features
 
-Just wrap your main app entry (or any component) with `DebugTrigger`. That's it! Everything — including network monitoring — is automatically configured and works in **Release** mode.
+### 🌐 Network Monitoring
 
-```javascript
+* Intercepts `fetch` and `XMLHttpRequest`
+* Optional `Axios` support
+* Full request/response inspection
+* Duration, headers, payload tracking
+
+### 🔄 Dynamic Environment Switching
+
+* Change API Base URL at runtime
+* Supports Production / Staging / Test / Custom
+* No rebuild required
+* Smart redirection engine
+
+### 🕵️ Hidden Debug Access
+
+* Multi-tap trigger system
+* Works anywhere in the app
+* Invisible for end-users
+
+### 🔐 Security Layer
+
+* Password-protected access
+* Role-based enable/disable logic
+* Safe for production usage
+
+### 🎨 Premium UI
+
+* Glassmorphism design
+* Dark mode optimized
+* Smooth animations
+* Floating debug button
+
+### 🔍 Filtering & Search
+
+* Filter by:
+  * Request
+  * Response
+  * Error
+* Search by URL or content
+
+### 📤 Export & cURL
+
+* Copy requests as executable cURL
+* Export logs via share sheet
+
+### 🌍 Localization
+
+* Auto-detect device language
+* Supports: AZ, EN, TR, RU
+
+---
+
+## ⚡ Quick Start (1-Minute Setup)
+
+Wrap your app. That’s it.
+
+```tsx
 import { DebugTrigger } from 'react-native-debug-logger';
 
 const App = () => {
   return (
     <DebugTrigger 
-      password="2024"
-      baseUrls={[
-        { title: 'Development', url: 'https://dev-api.example.com' },
-        { title: 'Staging', url: 'https://staging-api.example.com' }
-      ]}
+      password="2025"
+      clicksNeeded={5}
+      prodUrl="https://api.myapp.com"
+      testUrl="https://test-api.myapp.com"
     >
-      <MainApp />
+      <YourAppRoot />
     </DebugTrigger>
   );
 };
 ```
 
+✔ No config
+✔ Works instantly
+✔ Works in Release builds
+
 ---
 
-### 🎨 Custom Configuration (All Optional)
+## 🧠 Deep Dive: Architecture
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `clicksNeeded` | `number` | `5` | Clicks to reveal the password modal |
-| `password` | `string` | `'2024'` | Secret password to access the monitor (Set `null` for none) |
-| `isDemo` | `boolean` | `false` | Initial environment state |
-| `baseUrls` | `array` | `[]` | List of predefined API URLs (strings or `{title, url}` objects) |
-| `enabled` | `boolean` | `true` | Completely enable/disable the trigger |
-| `onEnvChange` | `function`| - | Optional switcher (if provided, shows toggle in settings) |
-| `onBaseUrlChange`| `function`| - | Callback when Base URL is updated |
+This library is built around **3 core pillars**:
 
-#### 🔘 Dynamic Redirection Logic
-When you set a **Custom URL** or pick a **Predefined Source** in the Settings tab, the library automatically intercepts all outgoing requests and replaces their origin with your new selection.
-*Example: Redirecting `https://api.prod.com/v1/user` to `https://api.test.com/v1/user` happens automatically!*
+### 1. Logger (Core Engine)
 
-#### 🔘 Persistent Floating Button
-Once the debug menu is opened for the first time, a small **DEBUG** button appears. To hide it completely, use the **"Xitam"** (Exit) button inside the debug monitor header.
+* Singleton pattern
+* Centralized log storage
+* Handles all incoming events
 
-### 🔬 Manual Setup (Optional)
+### 2. Monitors (Interceptors)
 
-If you only want the logger without the UI trigger, or need it to start *before* your UI renders, call `setupNetworkMonitor` manually in `index.js`.
+* Patches:
+  * `fetch`
+  * `XMLHttpRequest`
+  * `console`
+* Captures and forwards all activity to Logger
 
-```javascript
-import { setupNetworkMonitor } from 'react-native-debug-logger';
+### 3. UI Layer
 
-setupNetworkMonitor();
+* `DebugTrigger` → hidden entry point
+* `DebugMonitor` → full dashboard
+
+---
+
+## 🌐 Network Layer Explained
+
+* Uses **global patching**
+* Does NOT block original requests
+* Clones request/response safely
+
+Captured data:
+* URL
+* Method
+* Headers
+* Body
+* Status
+* Duration
+
+---
+
+## 🔁 Smart Redirection Engine
+
+Example:
+```
+https://api.prod.com/users
+➡️ https://api.test.com/users
+```
+✔ Happens before request is sent
+✔ Transparent to your app
+
+### 🧠 Smart Exclusions
+
+Internal dev traffic like `localhost:8081` is automatically ignored to prevent conflicts.
+
+---
+
+## 🕵️ DebugTrigger System
+
+* Detects multiple taps (`clicksNeeded`)
+* Opens password modal
+* Activates debug session
+
+After activation:
+* Floating **DEBUG** button appears
+* Quick re-access enabled
+
+---
+
+## 🖥 Debug Monitor Dashboard
+
+### Tabs
+
+* **All** → everything
+* **Network** → API logs
+* **Logs** → console output
+* **Settings** → environment control
+
+### Extra Capabilities
+
+* URL redirection indicator
+* Real-time updates
+* Clean cURL generation
+
+---
+
+## ⚙️ State & Performance
+
+* No Redux / MobX / external state libs
+* Uses **Subscriber Pattern**
+* Lightweight and fast
+
+### Memory Control
+
+* Max ~500 logs (configurable)
+* Auto cleanup of old logs
+
+---
+
+## 🛠 Advanced Usage
+
+### Custom Base URLs
+
+```tsx
+<DebugTrigger
+  password="admin"
+  clicksNeeded={7}
+  baseUrls={[
+    { title: 'Local', url: 'http://192.168.1.10:3000' },
+    { title: 'Staging', url: 'https://staging.myapp.com' }
+  ]}
+  onBaseUrlChange={(url) => {
+    console.log('New Base URL:', url);
+  }}
+>
+  <App />
+</DebugTrigger>
 ```
 
-## API Reference 📚
+---
 
-### `DebugTrigger`
-All props listed in the table above are supported.
+### Manual Logging API
 
-### `Logger`
-Manual logging if needed:
-```javascript
+```ts
 import { Logger } from 'react-native-debug-logger';
 
-Logger.logRequest({ url: '...', method: 'POST', data: { ... } });
-Logger.logResponse({ status: 200, data: { ... }, headers: { ... } });
-Logger.logError({ message: 'Something went wrong' });
+Logger.logInfo('User action', { id: 1 });
+Logger.logError('Something failed');
+Logger.logNavigation('HomeScreen');
+Logger.logDatabase('SELECT * FROM users');
 ```
 
 ---
 
-## Support & Donation ☕️
+## 🆚 Why react-native-debug-logger?
 
-If this library has been helpful to you, consider supporting its development!
-
-<div align="center">
-  <p><b>Scan the QR code to support:</b></p>
-  <a href="https://kofe.al/@alicanov98">
-    <img src="https://kofe.al/storage/images/qrcodes/alicanov98-1774646802.png" width="200" alt="Support QR Code" />
-  </a>
-</div>
+| Feature             | This Library | Others |
+| ------------------- | ------------ | ------ |
+| Works in Production | ✅            | ❌      |
+| Built-in UI         | ✅            | ❌      |
+| Zero dependencies   | ✅            | ❌      |
+| API switching       | ✅            | ❌      |
+| Hidden access       | ✅            | ❌      |
 
 ---
-Created with ❤️ by Alijanov
+
+## 👥 Who is this for?
+
+* React Native developers debugging APIs
+* Teams working with multiple environments
+* QA engineers testing builds
+* Production debugging scenarios
+
+---
+
+## 🛡 Security Best Practice
+
+Disable for normal users:
+
+```tsx
+const isEnabled = __DEV__ || isAdmin;
+
+return isEnabled ? (
+  <DebugTrigger>{children}</DebugTrigger>
+) : children;
+```
+
+---
+
+## 📦 Installation
+
+```bash
+npm install react-native-debug-logger
+```
+
+---
+
+## 📚 Keywords
+
+react-native, debug, logger, network, axios, fetch, interceptor, monitoring, devtools
+
+---
+
+## ❤️ Support
+
+If you find this useful:
+👉 [https://kofe.al/@alicanov98](https://kofe.al/@alicanov98)
+
+---
+
+## 👨💻 Author
+
+**Alijanov**
+[https://github.com/alicanov98](https://github.com/alicanov98)
+
+---
+
+## ⭐ Star the Repo
+
+If you like this project, give it a ⭐ — it really helps!
+
+---
+
+## 📄 License
+
+MIT License

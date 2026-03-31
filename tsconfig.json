@@ -6,6 +6,7 @@
     "lib": ["esnext", "dom"],
     "declaration": true,
     "outDir": "dist",
+    "rootDir": "src",
     "strict": true,
     "moduleResolution": "node",
     "esModuleInterop": true,

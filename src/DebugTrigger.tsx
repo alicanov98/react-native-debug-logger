@@ -16,6 +16,7 @@ import {
 import { DebugMonitor } from './DebugMonitor';
 import { setupNetworkMonitor } from './NetworkMonitor';
 import { setupConsoleMonitor } from './ConsoleMonitor';
+import { Logger } from './Logger';
 
 interface DebugTriggerProps {
   children?: ReactNode;
@@ -25,6 +26,8 @@ interface DebugTriggerProps {
   onEnvChange?: (newEnv: 'demo' | 'prod') => void;
   onBaseUrlChange?: (newUrl: string) => void;
   baseUrls?: string[] | { title: string; url: string }[];
+  prodUrl?: string;
+  testUrl?: string;
   enabled?: boolean;
   checkAccess?: () => boolean | Promise<boolean>;
   language?: 'az' | 'en' | 'ru' | 'tr' | 'auto';
@@ -67,6 +70,8 @@ export const DebugTrigger = ({
   onEnvChange,
   onBaseUrlChange,
   baseUrls,
+  prodUrl,
+  testUrl,
   enabled = true,
   checkAccess,
   language = 'auto',
@@ -84,6 +89,18 @@ export const DebugTrigger = ({
   useEffect(() => {
     setupNetworkMonitor();
     setupConsoleMonitor();
+    
+    // Set initial base URL if not already set
+    if (!Logger.getBaseUrl()) {
+        const initialUrl = isDemo ? testUrl : prodUrl;
+        if (initialUrl) {
+            Logger.setBaseUrl(initialUrl);
+        } else if (baseUrls && baseUrls.length > 0) {
+            const first = baseUrls[0];
+            const url = typeof first === 'string' ? first : first.url;
+            Logger.setBaseUrl(url);
+        }
+    }
   }, []);
 
   const handleClick = () => {
@@ -138,6 +155,8 @@ export const DebugTrigger = ({
           envConfig={onEnvChange ? { currentEnv: isDemo ? 'demo' : 'prod', onEnvChange } : undefined}
           onBaseUrlChange={onBaseUrlChange}
           baseUrls={baseUrls}
+          prodUrl={prodUrl}
+          testUrl={testUrl}
           onExitDebugMode={() => setShowFloatingButton(false)}
           language={language}
         />
@@ -201,6 +220,6 @@ const styles = StyleSheet.create({
   submitBtn: { flex: 2, backgroundColor: COLORS.primary, padding: 14, borderRadius: 12, alignItems: 'center' },
   cancelText: { color: COLORS.textDim, fontWeight: 'bold' },
   submitText: { color: COLORS.background, fontWeight: '900' },
-  floatingButton: { position: 'absolute', bottom: 100, right: 20, backgroundColor: COLORS.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, elevation: 10, shadowColor: COLORS.primary, shadowAlpha: 0.5, shadowRadius: 10 },
+  floatingButton: { position: 'absolute', bottom: 100, right: 20, backgroundColor: COLORS.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, elevation: 10, shadowColor: COLORS.primary, shadowOpacity: 0.5, shadowRadius: 10 },
   floatingButtonText: { color: COLORS.background, fontWeight: '900', fontSize: 11, letterSpacing: 1 },
 });
